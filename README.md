@@ -27,14 +27,19 @@ Sniffox uses an enhanced Nmap engine to perform multi-pass ARP scans, ensuring t
 
 ## 📥 Installation & Usage
 
-### 1. Install System Requirements
+### 
+1. Install System Requirements
 ```bash
 sudo apt-get update && sudo apt-get install python3 nmap -y
+
+
 2. Setup & Install Dependencies
 Bash
-git clone [https://github.com/cyberlatchofficial-ctrl/Sniffox](https://github.com/cyberlatchofficial-ctrl/Sniffox)
+git clone https://github.com/cyberlatchofficial-ctrl/Sniffox.git
 cd Sniffox
 sudo pip install -r requirements.txt --break-system-packages
+
+
 3. Run the Tool
 Bash
 sudo python3 sniffox.py
